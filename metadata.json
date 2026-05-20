@@ -1,0 +1,6 @@
+{
+  "name": "RLabs Intelligence",
+  "description": "Real-time visitor detection, registration, telemetry, and analytics platform with server-side AI-driven parsing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
