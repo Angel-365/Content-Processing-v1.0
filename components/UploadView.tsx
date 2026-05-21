@@ -132,7 +132,17 @@ export function UploadView({ onAddDetection }: UploadViewProps) {
           )
         );
 
-        const apiResponse = await fetch("/app/api/gemini/analyze", {
+        await fetch("https://8d4sbmaiui.execute-api.eu-north-1.amazonaws.com/contentProcessing/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            image_base64: base64Content,
+            file_name: file.name,
+            content_type: file.type || "image/jpeg",
+          }),
+        });
+
+        const apiResponse = await fetch("/api/gemini/analyze", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
