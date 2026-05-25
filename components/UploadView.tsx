@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { UploadCloud, FolderOpen, AlertCircle, FileText, CheckCircle, X, ShieldAlert, Sparkles, Loader2 } from "lucide-react";
+import { UploadCloud, FolderOpen, AlertCircle, FileText, X, ShieldAlert, Sparkles, Loader2 } from "lucide-react";
 import { DetectorRecord } from "@/lib/sample-data";
+import { RegisterModal } from "./RegisterModal";
 
 export interface CustomFileItem {
   id: string;
@@ -47,6 +48,7 @@ export function UploadView({ onAddDetection }: UploadViewProps) {
   ]);
   const [generalError, setGeneralError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [newVisitor, setNewVisitor] = useState<{ faceId: string; fileName: string } | null>(null);
 
   // File drag state handlers
   const handleDragEnter = (e: React.DragEvent) => {
@@ -117,22 +119,15 @@ export function UploadView({ onAddDetection }: UploadViewProps) {
 
     try {
       if (isImage) {
-        // Update to base64 uploading phase animation
         setFileList((prev) =>
           prev.map((item) =>
-            item.id === uniqueId ? { ...item, progress: 30, message: "Ingesting image binary matrix..." } : item
+            item.id === uniqueId ? { ...item, progress: 50, message: "Uploading image..." } : item
           )
         );
 
         const base64Content = await convertToBase64(file);
 
-        setFileList((prev) =>
-          prev.map((item) =>
-            item.id === uniqueId ? { ...item, progress: 60, message: "Running server-side Gemini threat assessment..." } : item
-          )
-        );
-
-        await fetch("https://8d4sbmaiui.execute-api.eu-north-1.amazonaws.com/contentProcessing/upload", {
+        const uploadRes = await fetch("https://8d4sbmaiui.execute-api.eu-north-1.amazonaws.com/contentProcessing/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -142,123 +137,16 @@ export function UploadView({ onAddDetection }: UploadViewProps) {
           }),
         });
 
-        const apiResponse = await fetch("/api/gemini/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            imageBase64: base64Content,
-            mimeType: file.type || "image/jpeg",
-          }),
-        });
+        const uploadData = await uploadRes.json().catch(() => null);
 
-        const outcome = await apiResponse.json();
-
-        if (outcome.success && outcome.data) {
-          const aiData = outcome.data;
-          
-          // Construct the actual dynamic visitor profile
-          const finalRecord: Omit<DetectorRecord, "id" | "timestamp"> = {
-            status: aiData.status || "New",
-            gender: aiData.gender || "Female",
-            age: aiData.age || 29,
-            city: aiData.city || "Security Desk",
-            country: aiData.country || "Edge Node",
-            reason: `${aiData.reason} (AI Inspected: ${aiData.insights})`,
-          };
-
-          // Append to global detections databases
-          onAddDetection(finalRecord);
-
-          setFileList((prev) =>
-            prev.map((item) =>
-              item.id === uniqueId
-                ? {
-                    ...item,
-                    progress: 100,
-                    status: "completed",
-                    message: `Verified identification. Added as ${finalRecord.status} visitor!`,
-                    parsedRecord: finalRecord,
-                  }
-                : item
-            )
-          );
-        } else {
-          // Fallback parsing model simulation if server key is missing
-          await new Promise((res) => setTimeout(res, 1200));
-          const mockReason = file.name.includes("cam")
-            ? "Entrance Ingestion Camera Feed Analysis Scan"
-            : "Authorized Building Contractor Check-in Screening";
-          
-          const fakeRecord = {
-            status: "New" as const,
-            gender: "Female" as const,
-            age: 28,
-            city: "London",
-            country: "United Kingdom",
-            reason: `${mockReason} (Simulated parsing indices)`,
-          };
-
-          onAddDetection(fakeRecord);
-
-          setFileList((prev) =>
-            prev.map((item) =>
-              item.id === uniqueId
-                ? {
-                    ...item,
-                    progress: 100,
-                    status: "completed",
-                    message: "Analyzed (Simulated fallback parameters set)",
-                    parsedRecord: fakeRecord,
-                  }
-                : item
-            )
-          );
+        if (uploadData?.status === "New_visitor") {
+          setNewVisitor({ faceId: uploadData.face_id, fileName: uploadData.file_name });
         }
-      } else {
-        // Video file simulation
-        await new Promise((resolve) => {
-          let currentProgress = 10;
-          const interval = setInterval(() => {
-            currentProgress += 15;
-            if (currentProgress >= 100) {
-              clearInterval(interval);
-              resolve(true);
-            } else {
-              setFileList((prev) =>
-                prev.map((item) =>
-                  item.id === uniqueId
-                    ? {
-                        ...item,
-                        progress: currentProgress,
-                        message: "Extracting visitor vector characteristics keyframes...",
-                      }
-                    : item
-                )
-              );
-            }
-          }, 350);
-        });
-
-        const customRecord: Omit<DetectorRecord, "id" | "timestamp"> = {
-          status: "Returning",
-          gender: "Male" as const,
-          age: 34,
-          city: "Paris",
-          country: "France",
-          reason: `Video Stream Parser: ${file.name} (Automated audit complete)`,
-        };
-
-        onAddDetection(customRecord);
 
         setFileList((prev) =>
           prev.map((item) =>
             item.id === uniqueId
-              ? {
-                  ...item,
-                  progress: 100,
-                  status: "completed",
-                  message: "Video sequence checked. 1 threat verified.",
-                }
+              ? { ...item, progress: 100, status: "completed", message: uploadData?.status === "New_visitor" ? "New visitor detected. Please complete registration." : "Upload complete." }
               : item
           )
         );
@@ -418,6 +306,19 @@ export function UploadView({ onAddDetection }: UploadViewProps) {
         </div>
 
       </div>
+
+      {newVisitor && (
+        <RegisterModal
+          isOpen={true}
+          faceId={newVisitor.faceId}
+          fileName={newVisitor.fileName}
+          onClose={() => setNewVisitor(null)}
+          onSave={(record) => {
+            onAddDetection(record);
+            setNewVisitor(null);
+          }}
+        />
+      )}
     </div>
   );
 }

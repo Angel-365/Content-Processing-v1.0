@@ -8,9 +8,11 @@ interface RegisterModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (record: Omit<DetectorRecord, "id" | "timestamp">) => void;
+  faceId?: string;
+  fileName?: string;
 }
 
-export function RegisterModal({ isOpen, onClose, onSave }: RegisterModalProps) {
+export function RegisterModal({ isOpen, onClose, onSave, faceId, fileName }: RegisterModalProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [dob, setDob] = useState("");
@@ -66,14 +68,17 @@ export function RegisterModal({ isOpen, onClose, onSave }: RegisterModalProps) {
         country: country.trim() || "Local Office",
         city: city.trim() || "HQ Intake",
         reason: reason.trim(),
+        ...(faceId && { face_id: faceId }),
+        ...(fileName && { file_name: fileName }),
       };
 
-      // We support the mock API register-visitor for full simulation fidelity
       const response = await fetch("https://8d4sbmaiui.execute-api.eu-north-1.amazonaws.com/contentProcessing/register-visitor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      }).catch(() => null); // Silent recovery if mock endpoint is offline
+      });
+
+      if (!response.ok) throw new Error("Registration failed");
 
       // Wait a fraction to simulate edge node token generation
       await new Promise((res) => setTimeout(res, 800));
