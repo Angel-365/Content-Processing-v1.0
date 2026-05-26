@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { UploadCloud, FolderOpen, AlertCircle, FileText, X, ShieldAlert, Sparkles, Loader2 } from "lucide-react";
+import { UploadCloud, FolderOpen, AlertCircle, FileText, X, ShieldAlert, Sparkles, Loader2, UserCheck } from "lucide-react";
 import { DetectorRecord } from "@/lib/sample-data";
 import { RegisterModal } from "./RegisterModal";
 
@@ -49,6 +49,9 @@ export function UploadView({ onAddDetection }: UploadViewProps) {
   const [generalError, setGeneralError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [newVisitor, setNewVisitor] = useState<{ faceId: string; fileName: string } | null>(null);
+  const [returningVisitor, setReturningVisitor] = useState<{ faceId: string; fileName: string; similarity: number } | null>(null);
+  const [logVisitLoading, setLogVisitLoading] = useState(false);
+  const [logVisitDone, setLogVisitDone] = useState(false);
 
   // File drag state handlers
   const handleDragEnter = (e: React.DragEvent) => {
@@ -141,12 +144,25 @@ export function UploadView({ onAddDetection }: UploadViewProps) {
 
         if (uploadData?.status === "New_visitor") {
           setNewVisitor({ faceId: uploadData.face_id, fileName: uploadData.file_name });
+        } else if (uploadData?.status === "Returning_visitor") {
+          setReturningVisitor({ faceId: uploadData.face_id, fileName: uploadData.file_name, similarity: uploadData.similarity });
+          setLogVisitDone(false);
         }
 
         setFileList((prev) =>
           prev.map((item) =>
             item.id === uniqueId
-              ? { ...item, progress: 100, status: "completed", message: uploadData?.status === "New_visitor" ? "New visitor detected. Please complete registration." : "Upload complete." }
+              ? {
+                  ...item,
+                  progress: 100,
+                  status: "completed",
+                  message:
+                    uploadData?.status === "New_visitor"
+                      ? "New visitor detected. Please complete registration."
+                      : uploadData?.status === "Returning_visitor"
+                      ? "Returning visitor identified."
+                      : "Upload complete.",
+                }
               : item
           )
         );
@@ -306,6 +322,74 @@ export function UploadView({ onAddDetection }: UploadViewProps) {
         </div>
 
       </div>
+
+      {returningVisitor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#2b1613]/50 backdrop-blur-[6px] p-4">
+          <div className="bg-white w-full max-w-md rounded-xl shadow-[0_12px_40px_rgba(43,22,19,0.15)] border border-[#ebbbb4]">
+            <div className="flex justify-between items-center p-6 border-b border-[#ebbbb4] bg-[#fff0ee] rounded-t-xl">
+              <div className="flex items-center gap-2">
+                <UserCheck className="w-5 h-5 text-[#bc0100]" />
+                <h2 className="text-lg font-bold text-[#2b1613]">Returning Visitor</h2>
+              </div>
+              <button onClick={() => setReturningVisitor(null)} className="text-[#603e39] hover:text-[#bc0100] transition-colors p-1.5 rounded-full hover:bg-[#ffe9e6]">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {logVisitDone ? (
+                <div className="flex flex-col items-center justify-center py-6 text-center gap-3">
+                  <div className="w-12 h-12 bg-[#ffdad4] rounded-full flex items-center justify-center">
+                    <UserCheck className="w-6 h-6 text-[#bc0100]" />
+                  </div>
+                  <p className="text-sm font-bold text-[#2b1613]">Visit logged successfully!</p>
+                </div>
+              ) : (
+                <>
+                  <div className="bg-[#fff8f6] border border-[#ebbbb4]/60 rounded-lg p-4 space-y-2">
+                    <p className="text-[10px] uppercase font-bold text-[#603e39] tracking-wide">Face ID</p>
+                    <p className="text-sm font-mono font-semibold text-[#2b1613] break-all">{returningVisitor.faceId}</p>
+                  </div>
+                  <div className="flex gap-3 text-xs">
+                    <div className="flex-1 bg-[#fff8f6] border border-[#ebbbb4]/60 rounded-lg p-3">
+                      <p className="text-[10px] uppercase font-bold text-[#603e39] tracking-wide">File</p>
+                      <p className="font-semibold text-[#2b1613] mt-0.5 truncate">{returningVisitor.fileName}</p>
+                    </div>
+                    <div className="flex-1 bg-[#fff8f6] border border-[#ebbbb4]/60 rounded-lg p-3">
+                      <p className="text-[10px] uppercase font-bold text-[#603e39] tracking-wide">Similarity</p>
+                      <p className="font-semibold text-[#2b1613] mt-0.5">{returningVisitor.similarity}%</p>
+                    </div>
+                  </div>
+                  <button
+                    disabled={logVisitLoading}
+                    onClick={async () => {
+                      setLogVisitLoading(true);
+                      try {
+                        await fetch("https://8d4sbmaiui.execute-api.eu-north-1.amazonaws.com/contentProcessing/visitLogger", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            face_id: returningVisitor.faceId,
+                            file_name: returningVisitor.fileName,
+                            similarity: returningVisitor.similarity,
+                            status: "Returning_visitor",
+                          }),
+                        });
+                        setLogVisitDone(true);
+                      } finally {
+                        setLogVisitLoading(false);
+                      }
+                    }}
+                    className="w-full bg-[#bc0100] hover:bg-[#2b1613] text-white text-xs font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+                  >
+                    {logVisitLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserCheck className="w-4 h-4" />}
+                    <span>{logVisitLoading ? "Logging..." : "Log Visit"}</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {newVisitor && (
         <RegisterModal
