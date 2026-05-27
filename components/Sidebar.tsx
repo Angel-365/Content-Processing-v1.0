@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { LayoutDashboard, Upload, Users, HelpCircle, User, Plus, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Upload, User, Plus, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -14,11 +14,9 @@ export function Sidebar({ currentTab, setTab, onOpenRegisterModal }: SidebarProp
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "upload", label: "Upload", icon: Upload },
-    { id: "visitors", label: "Visitors", icon: Users },
   ];
 
   const subItems = [
-    { id: "support", label: "Support", icon: HelpCircle },
     { id: "account", label: "Account", icon: User },
   ];
 

@@ -21,31 +21,7 @@ interface UploadViewProps {
 
 export function UploadView({ onAddDetection }: UploadViewProps) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const [fileList, setFileList] = useState<CustomFileItem[]>([
-    {
-      id: "proc-1",
-      name: "cam_feed_main_entrance.mp4",
-      progress: 45,
-      status: "processing",
-      message: "Analyzing visitor motion data...",
-      thumbnail: "https://picsum.photos/seed/camera1/120/120",
-    },
-    {
-      id: "proc-2",
-      name: "lobby_scan_14.jpg",
-      progress: 10,
-      status: "processing",
-      message: "Processing edge snapshot matrices...",
-    },
-    {
-      id: "proc-3",
-      name: "historical_batch_02.zip",
-      progress: 100,
-      status: "completed",
-      message: "Batch registry ingestion index compiled",
-      thumbnail: "https://picsum.photos/seed/lobby1/120/120",
-    },
-  ]);
+  const [fileList, setFileList] = useState<CustomFileItem[]>([]);
   const [generalError, setGeneralError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [newVisitor, setNewVisitor] = useState<{ faceId: string; fileName: string } | null>(null);
@@ -142,27 +118,24 @@ export function UploadView({ onAddDetection }: UploadViewProps) {
 
         const uploadData = await uploadRes.json().catch(() => null);
 
-        if (uploadData?.status === "New_visitor") {
+        const rawStatus = (uploadData?.status ?? "").toLowerCase();
+        let resultMessage = `Unknown response: ${JSON.stringify(uploadData)}`;
+
+        if (rawStatus === "new_visitor") {
           setNewVisitor({ faceId: uploadData.face_id, fileName: uploadData.file_name });
-        } else if (uploadData?.status === "Returning_visitor") {
+          resultMessage = "New visitor detected. Please complete registration.";
+        } else if (rawStatus === "returning_visitor") {
           setReturningVisitor({ faceId: uploadData.face_id, fileName: uploadData.file_name, similarity: uploadData.similarity });
           setLogVisitDone(false);
+          resultMessage = "Returning visitor identified.";
+        } else if (!uploadData) {
+          resultMessage = "No response from server. Check your connection.";
         }
 
         setFileList((prev) =>
           prev.map((item) =>
             item.id === uniqueId
-              ? {
-                  ...item,
-                  progress: 100,
-                  status: "completed",
-                  message:
-                    uploadData?.status === "New_visitor"
-                      ? "New visitor detected. Please complete registration."
-                      : uploadData?.status === "Returning_visitor"
-                      ? "Returning visitor identified."
-                      : "Upload complete.",
-                }
+              ? { ...item, progress: 100, status: rawStatus === "new_visitor" || rawStatus === "returning_visitor" ? "completed" : "error", message: resultMessage }
               : item
           )
         );
@@ -331,7 +304,7 @@ export function UploadView({ onAddDetection }: UploadViewProps) {
                 <UserCheck className="w-5 h-5 text-[#bc0100]" />
                 <h2 className="text-lg font-bold text-[#2b1613]">Returning Visitor</h2>
               </div>
-              <button onClick={() => setReturningVisitor(null)} className="text-[#603e39] hover:text-[#bc0100] transition-colors p-1.5 rounded-full hover:bg-[#ffe9e6]">
+              <button onClick={() => { setReturningVisitor(null); setFileList([]); }} className="text-[#603e39] hover:text-[#bc0100] transition-colors p-1.5 rounded-full hover:bg-[#ffe9e6]">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -375,6 +348,7 @@ export function UploadView({ onAddDetection }: UploadViewProps) {
                           }),
                         });
                         setLogVisitDone(true);
+                        setFileList([]);
                       } finally {
                         setLogVisitLoading(false);
                       }
@@ -396,10 +370,11 @@ export function UploadView({ onAddDetection }: UploadViewProps) {
           isOpen={true}
           faceId={newVisitor.faceId}
           fileName={newVisitor.fileName}
-          onClose={() => setNewVisitor(null)}
+          onClose={() => { setNewVisitor(null); setFileList([]); }}
           onSave={(record) => {
             onAddDetection(record);
             setNewVisitor(null);
+            setFileList([]);
           }}
         />
       )}

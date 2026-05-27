@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Users, History, Filter, Download, ArrowUpRight, ArrowUpCircle, Info, RefreshCw, Eye } from "lucide-react";
+import { Users, History, Filter, Download, ArrowUpRight, ArrowUpCircle, Info, RefreshCw, Eye, MapPin, Globe } from "lucide-react";
 import { DetectorRecord } from "@/lib/sample-data";
 
 interface DashboardViewProps {
@@ -18,6 +18,49 @@ export function DashboardView({ records, onRefresh, onOpenUpload }: DashboardVie
   const [localSearch, setLocalSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 4;
+
+  // Analytics derived from records
+  const analytics = useMemo(() => {
+    const total = records.length;
+    if (total === 0) return null;
+
+    const newCount = records.filter((r) => r.status === "New").length;
+    const returningCount = total - newCount;
+
+    const ageRanges = [
+      { label: "12–17", min: 12, max: 17 },
+      { label: "18–24", min: 18, max: 24 },
+      { label: "25–34", min: 25, max: 34 },
+      { label: "35–44", min: 35, max: 44 },
+      { label: "45–54", min: 45, max: 54 },
+      { label: "55+",   min: 55, max: Infinity },
+    ].map((r) => ({ ...r, count: records.filter((rec) => rec.age >= r.min && rec.age <= r.max).length }));
+
+    const cityMap: Record<string, number> = {};
+    const countryMap: Record<string, number> = {};
+    records.forEach((r) => {
+      cityMap[r.city] = (cityMap[r.city] || 0) + 1;
+      countryMap[r.country] = (countryMap[r.country] || 0) + 1;
+    });
+    const topCities = Object.entries(cityMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const topCountries = Object.entries(countryMap).sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+    const genders = [
+      { label: "Male",       key: "Male" },
+      { label: "Female",     key: "Female" },
+      { label: "Non-binary", key: "Non-binary" },
+      { label: "Other",      key: "other" },
+    ].map(({ label, key }) => ({
+      label,
+      count: records.filter((r) =>
+        key === "other"
+          ? r.gender !== "Male" && r.gender !== "Female" && r.gender !== "Non-binary"
+          : r.gender === key
+      ).length,
+    }));
+
+    return { total, newCount, returningCount, ageRanges, genders, topCities, topCountries };
+  }, [records]);
 
   // Derive unique countries from current records to populate country selector dynamically
   const availableCountries = useMemo(() => {
@@ -186,6 +229,114 @@ export function DashboardView({ records, onRefresh, onOpenUpload }: DashboardVie
         </div>
 
       </div>
+
+      {/* Analytics Sections */}
+      {analytics && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+          {/* New vs Returning */}
+          <div className="bg-white rounded-xl p-5 border border-[#ebbbb4]/60 shadow-sm">
+            <h3 className="text-[11px] font-bold text-[#603e39] uppercase tracking-wider mb-4">Visitor Type</h3>
+            {[
+              { label: "New", count: analytics.newCount, color: "bg-[#bc0100]" },
+              { label: "Returning", count: analytics.returningCount, color: "bg-[#2b1613]" },
+            ].map(({ label, count, color }) => {
+              const pct = Math.round((count / analytics.total) * 100);
+              return (
+                <div key={label} className="mb-3">
+                  <div className="flex justify-between text-xs font-semibold text-[#2b1613] mb-1">
+                    <span>{label}</span>
+                    <span className="font-mono">{count} <span className="text-[#603e39] font-normal">({pct}%)</span></span>
+                  </div>
+                  <div className="h-2 bg-[#f5eeec] rounded-full overflow-hidden">
+                    <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+
+            <div className="border-t border-[#ebbbb4]/40 pt-3 mt-1">
+              <h4 className="text-[10px] font-bold text-[#603e39] uppercase tracking-wider mb-3">Gender</h4>
+              {analytics.genders.map(({ label, count }) => {
+                const pct = Math.round((count / analytics.total) * 100);
+                return (
+                  <div key={label} className="mb-2.5">
+                    <div className="flex justify-between text-xs font-semibold text-[#2b1613] mb-1">
+                      <span>{label}</span>
+                      <span className="font-mono">{count} <span className="text-[#603e39] font-normal">({pct}%)</span></span>
+                    </div>
+                    <div className="h-1.5 bg-[#f5eeec] rounded-full overflow-hidden">
+                      <div className="h-full bg-[#bc0100] rounded-full transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Age Ranges */}
+          <div className="bg-white rounded-xl p-5 border border-[#ebbbb4]/60 shadow-sm">
+            <h3 className="text-[11px] font-bold text-[#603e39] uppercase tracking-wider mb-4">Age Distribution</h3>
+            {analytics.ageRanges.map(({ label, count }) => {
+              const pct = Math.round((count / analytics.total) * 100);
+              return (
+                <div key={label} className="mb-2.5">
+                  <div className="flex justify-between text-xs font-semibold text-[#2b1613] mb-1">
+                    <span>{label} yrs</span>
+                    <span className="font-mono">{count} <span className="text-[#603e39] font-normal">({pct}%)</span></span>
+                  </div>
+                  <div className="h-1.5 bg-[#f5eeec] rounded-full overflow-hidden">
+                    <div className="h-full bg-[#bc0100] rounded-full transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Cities & Countries */}
+          <div className="bg-white rounded-xl p-5 border border-[#ebbbb4]/60 shadow-sm space-y-4">
+            <div>
+              <h3 className="text-[11px] font-bold text-[#603e39] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-[#bc0100]" /> Top Cities
+              </h3>
+              {analytics.topCities.map(([city, count]) => {
+                const pct = Math.round((count / analytics.total) * 100);
+                return (
+                  <div key={city} className="mb-2">
+                    <div className="flex justify-between text-xs font-semibold text-[#2b1613] mb-0.5">
+                      <span>{city}</span>
+                      <span className="font-mono">{count} <span className="text-[#603e39] font-normal">({pct}%)</span></span>
+                    </div>
+                    <div className="h-1.5 bg-[#f5eeec] rounded-full overflow-hidden">
+                      <div className="h-full bg-[#2b1613] rounded-full" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="border-t border-[#ebbbb4]/40 pt-3">
+              <h3 className="text-[11px] font-bold text-[#603e39] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Globe className="w-3.5 h-3.5 text-[#bc0100]" /> Top Countries
+              </h3>
+              {analytics.topCountries.map(([country, count]) => {
+                const pct = Math.round((count / analytics.total) * 100);
+                return (
+                  <div key={country} className="mb-2">
+                    <div className="flex justify-between text-xs font-semibold text-[#2b1613] mb-0.5">
+                      <span>{country}</span>
+                      <span className="font-mono">{count} <span className="text-[#603e39] font-normal">({pct}%)</span></span>
+                    </div>
+                    <div className="h-1.5 bg-[#f5eeec] rounded-full overflow-hidden">
+                      <div className="h-full bg-[#bc0100] rounded-full" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+        </div>
+      )}
 
       {/* Filter and controls row */}
       <div className="bg-white rounded-xl p-3 border border-[#ebbbb4]/60 flex flex-wrap gap-3 items-center shadow-sm">

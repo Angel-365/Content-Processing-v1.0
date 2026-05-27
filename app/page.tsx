@@ -5,8 +5,6 @@ import { Sidebar } from "@/components/Sidebar";
 import { TopNav } from "@/components/TopNav";
 import { DashboardView } from "@/components/DashboardView";
 import { UploadView } from "@/components/UploadView";
-import { VisitorsView } from "@/components/VisitorsView";
-import { SupportScreen } from "@/components/SupportScreen";
 import { AccountScreen } from "@/components/AccountScreen";
 import { RegisterModal } from "@/components/RegisterModal";
 import { INITIAL_DETECTION_RECORDS, DetectorRecord } from "@/lib/sample-data";
@@ -58,7 +56,7 @@ export default function Page() {
   // Synchronise global search with child components
   const handleGlobalSearch = (val: string) => {
     setGlobalSearch(val);
-    if (currentTab !== "dashboard" && currentTab !== "visitors") {
+    if (currentTab !== "dashboard") {
       setCurrentTab("dashboard"); // redirect to make research intuitive
     }
   };
@@ -138,8 +136,6 @@ export default function Page() {
                 {[
                   { id: "dashboard", label: "Dashboard" },
                   { id: "upload", label: "Upload screen" },
-                  { id: "visitors", label: "Visitors Directory" },
-                  { id: "support", label: "System Support" },
                   { id: "account", label: "Account Overview" },
                 ].map((item) => {
                   const isActive = currentTab === item.id;
@@ -188,22 +184,6 @@ export default function Page() {
             {currentTab === "upload" && (
               <UploadView onAddDetection={handleAddDetection} />
             )}
-
-            {currentTab === "visitors" && (
-              <VisitorsView
-                records={records.filter((item) => {
-                  if (globalSearch.trim()) {
-                    const query = globalSearch.toLowerCase();
-                    const combined = `${item.id} ${item.city} ${item.country} ${item.reason} ${item.gender}`.toLowerCase();
-                    return combined.includes(query);
-                  }
-                  return true;
-                })}
-                onOpenRegisterModal={() => setIsRegisterModalOpen(true)}
-              />
-            )}
-
-            {currentTab === "support" && <SupportScreen />}
 
             {currentTab === "account" && <AccountScreen userEmail="angelkhanye3@gmail.com" />}
 
