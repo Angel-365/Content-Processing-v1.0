@@ -337,7 +337,7 @@ export function UploadView({ onAddDetection }: UploadViewProps) {
                     onClick={async () => {
                       setLogVisitLoading(true);
                       try {
-                        await fetch("https://8d4sbmaiui.execute-api.eu-north-1.amazonaws.com/contentProcessing/visitLogger", {
+                        await fetch("https://8d4sbmaiui.execute-api.eu-north-1.amazonaws.com/contentProcessing/visit-logger ", {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({
